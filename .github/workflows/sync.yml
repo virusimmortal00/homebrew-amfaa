@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   sync:
-    name: Fetch, validate, and publish
+    name: Fetch, publish, and verify
     runs-on: macos-14
     timeout-minutes: 15
     steps:
@@ -25,26 +25,19 @@ jobs:
         # default GITHUB_TOKEN, used below to commit and push here.
         run: |
           curl --fail --location --proto '=https' --tlsv1.2 --retry 4 --retry-all-errors \
-            -o /tmp/amfaa.rb \
+            -o Casks/amfaa.rb \
             https://raw.githubusercontent.com/virusimmortal00/AllMyFriendsAreAgents/main/homebrew/Casks/amfaa.rb
+      - name: Lint the fetched cask before publishing it
+        run: brew style Casks/amfaa.rb
       - name: Check whether it changed
         id: diff
         run: |
-          if diff -q /tmp/amfaa.rb Casks/amfaa.rb > /dev/null 2>&1; then
+          if git diff --quiet -- Casks/amfaa.rb; then
             echo 'Cask already matches the source repository; nothing to sync.'
             echo changed=false >> "$GITHUB_OUTPUT"
           else
             echo changed=true >> "$GITHUB_OUTPUT"
           fi
-      - name: Validate the new cask under its real tap name before publishing it
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          cp /tmp/amfaa.rb Casks/amfaa.rb
-          brew tap virusimmortal00/amfaa "$PWD"
-          brew style virusimmortal00/amfaa/amfaa
-          brew audit --cask virusimmortal00/amfaa/amfaa
-          brew install --cask virusimmortal00/amfaa/amfaa
-          "$(brew --prefix)/bin/amfaa" version
       - name: Commit and push
         if: steps.diff.outputs.changed == 'true'
         run: |
@@ -53,3 +46,18 @@ jobs:
           git add Casks/amfaa.rb
           git commit --message 'Sync cask from AllMyFriendsAreAgents'
           git push
+      - name: Verify the published tap installs for real
+        # Runs whether or not this run changed anything -- a periodic
+        # end-to-end check, not only a post-sync one. A fully qualified
+        # `brew install --cask user/repo/cask` taps and trusts only this one
+        # item automatically; unlike a bare `brew tap`, it needs no separate
+        # `brew trust` step (see the tap's own README for why that matters).
+        run: |
+          brew install --cask virusimmortal00/amfaa/amfaa
+          identity=$("$(brew --prefix)/bin/amfaa" version)
+          echo "$identity"
+          expected=$(ruby -e 'puts /version "([^"]+)"/.match(File.read("Casks/amfaa.rb"))[1]')
+          echo "$identity" | grep -q "\"version\":\"$expected\"" || {
+            echo "::error::Installed amfaa reported a different version than the published cask declares ($expected)." >&2
+            exit 1
+          }

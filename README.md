@@ -5,9 +5,17 @@ Homebrew tap for [All My Friends Are Agents](https://github.com/virusimmortal00/
 ## Install
 
 ```sh
-brew tap virusimmortal00/amfaa
-brew install --cask amfaa
+brew install --cask virusimmortal00/amfaa/amfaa
 ```
+
+That one command taps this repository and installs `amfaa` in a single step. Using
+the fully qualified `user/repo/cask` name like this trusts only this cask — modern
+Homebrew (6.0+) requires taps and their contents to be explicitly trusted before
+loading any code from them, and a fully qualified install grants that automatically
+for the one item you asked for. See [Tap Trust](https://docs.brew.sh/Tap-Trust) for
+why, and the alternative (`brew tap` then `brew trust`) if you'd rather trust the
+whole tap up front — for example before installing by short name (`brew install
+amfaa`) in a script.
 
 Then run `amfaa` from the project directory you want agents to inspect. See the [Quick start](https://github.com/virusimmortal00/AllMyFriendsAreAgents#readme) in the main repository for first-time setup.
 
@@ -32,11 +40,12 @@ manifest, validates it (lint, audit, a real `brew install --cask`, and running t
 installed launcher), and merges it automatically once green.
 
 [`.github/workflows/sync.yml`](.github/workflows/sync.yml) in *this* repository pulls
-that file on a schedule and commits it here when it changes, using only this repo's own
-default `GITHUB_TOKEN` — reading a public file from the main repository needs no
+that file on a schedule, lints it, commits it here when it changes, and then verifies
+the published tap actually installs and runs — using only this repo's own default
+`GITHUB_TOKEN`; reading a public file from the main repository needs no
 cross-repository credential. Run it manually (Actions → Sync cask from source repo →
-Run workflow) to pick up a change immediately instead of waiting for the next scheduled
-run.
+Run workflow) to pick up a change immediately instead of waiting for the next
+scheduled run.
 
 Do not hand-edit `Casks/amfaa.rb` here — edit `homebrew/Casks/amfaa.rb` in the main
 repository (or its generator, `scripts/update-homebrew-formula.ts`) instead; this tap's
